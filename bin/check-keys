@@ -1,0 +1,110 @@
+#!/bin/bash
+# check-keys [DIR]: check that the public keys in DIR/keys agree with
+# DIR/FINGERPRINTS (handbook decision 0055). DIR is the repository root by
+# default. The package build runs this check, and CI runs it.
+#
+# For each line "ROLE FINGERPRINT" of FINGERPRINTS, the check makes sure
+# that:
+#   - keys/keel-trixie-ROLE.asc exists and is an armored public key block;
+#   - the file holds exactly 1 primary key, and no secret key material;
+#   - the fingerprint of that primary key is FINGERPRINT;
+#   - the key has at least 1 signing subkey that is not revoked or expired.
+# It also makes sure that no role and no fingerprint occurs 2 times, and
+# that each keys/*.asc file has its line in FINGERPRINTS.
+#
+# A file with 2 primary keys fails the check. Each role has its own file
+# and its own keyring, and the keys are never merged (decision 0055).
+#
+# Exit codes:
+#   0  every key agrees with FINGERPRINTS
+#   1  at least 1 key does not agree; each problem is on stderr
+#   2  usage, or FINGERPRINTS is missing
+set -euo pipefail
+
+usage() { echo "usage: check-keys [DIR]" >&2; exit 2; }
+
+[ $# -le 1 ] || usage
+case "${1:-}" in -h | --help) usage ;; esac
+DIR="${1:-$(cd "$(dirname "$(readlink -f "$0")")/.." && pwd)}"
+LIST="$DIR/FINGERPRINTS"
+[ -r "$LIST" ] || { echo "check-keys: $LIST is missing" >&2; exit 2; }
+
+GNUPGHOME="$(mktemp -d)"
+export GNUPGHOME
+trap 'rm -rf "$GNUPGHOME"' EXIT
+
+problems=0
+problem() { echo "check-keys: $*" >&2; problems=$((problems + 1)); }
+
+# show_keys FILE: the gpg colon listing of the keys in FILE.
+show_keys() {
+    gpg --batch --with-colons --fixed-list-mode --show-keys "$1" 2>/dev/null
+}
+
+# check_key ROLE FPR: the checks of 1 key file.
+check_key() {
+    local role="$1" fpr="$2" file listing count seen
+    file="$DIR/keys/keel-trixie-$role.asc"
+    if [ ! -f "$file" ]; then
+        problem "$role: $file is missing"
+        return
+    fi
+    if ! head -n 1 "$file" | grep -qx -- '-----BEGIN PGP PUBLIC KEY BLOCK-----'; then
+        problem "$role: $file is not an armored public key block"
+        return
+    fi
+    if grep -q 'PRIVATE KEY' "$file"; then
+        problem "$role: $file holds secret key material"
+        return
+    fi
+    listing="$(show_keys "$file")" || listing=""
+    count="$(grep -c '^pub:' <<< "$listing" || true)"
+    if [ "$count" != 1 ]; then
+        problem "$role: $file holds $count primary keys, it must hold exactly 1"
+        return
+    fi
+    # the first fpr line follows the pub line: the primary key
+    seen="$(awk -F: '$1 == "fpr" { print $10; exit }' <<< "$listing")"
+    if [ "$seen" != "$fpr" ]; then
+        problem "$role: $file has primary key $seen, FINGERPRINTS says $fpr"
+        return
+    fi
+    # sub lines: field 2 is the validity, field 12 the capabilities
+    if ! awk -F: '$1 == "sub" && $2 !~ /^[rei]$/ && index($12, "s") { found = 1 } END { exit !found }' <<< "$listing"; then
+        problem "$role: $file has no signing subkey that is valid"
+        return
+    fi
+    echo "$role $fpr ok"
+}
+
+roles=" " fprs=" "
+while read -r role fpr extra; do
+    case "$role" in '' | '#'*) continue ;; esac
+    if [ -n "${extra:-}" ] || ! [[ "$role" =~ ^[a-z]+$ ]] || ! [[ "${fpr:-}" =~ ^[0-9A-F]{40}$ ]]; then
+        problem "FINGERPRINTS: '$role ${fpr:-} ${extra:-}' is not 'ROLE FINGERPRINT' (a lowercase role, 40 uppercase hex digits)"
+        continue
+    fi
+    if [[ "$roles" == *" $role "* ]]; then
+        problem "FINGERPRINTS: role $role occurs 2 times"
+        continue
+    fi
+    if [[ "$fprs" == *" $fpr "* ]]; then
+        problem "FINGERPRINTS: $fpr occurs 2 times"
+        continue
+    fi
+    roles+="$role " fprs+="$fpr "
+    check_key "$role" "$fpr"
+done < "$LIST"
+
+for file in "$DIR"/keys/*.asc; do
+    [ -e "$file" ] || continue
+    role="$(basename "$file" .asc)"
+    role="${role#keel-trixie-}"
+    case "$roles" in
+        *" $role "*) : ;;
+        *) problem "$file has no line in FINGERPRINTS" ;;
+    esac
+done
+
+[ "$roles" != " " ] || problem "FINGERPRINTS names no role"
+[ "$problems" -eq 0 ] || exit 1

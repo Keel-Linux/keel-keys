@@ -1,0 +1,35 @@
+Source: keel-keys
+Section: admin
+Priority: optional
+Maintainer: KeelLinux maintainers <admin@keellinux.org>
+Build-Depends:
+ debhelper-compat (= 13),
+ gnupg,
+Standards-Version: 4.7.2
+Vcs-Git: https://github.com/keel-linux/keel-keys.git
+Vcs-Browser: https://github.com/keel-linux/keel-keys
+Rules-Requires-Root: no
+
+Package: keel-archive-keyring
+Architecture: all
+Multi-Arch: foreign
+Depends:
+ ${misc:Depends},
+Description: OpenPGP public keys of the Keel Linux signing roles
+ The public keys that sign what Keel Linux publishes, one key for each
+ role, each in its own keyring file for the Signed-By field of an apt
+ source:
+  * main, the trixie suite: /usr/share/keyrings/keel-archive-keyring.gpg
+  * security, the trixie-security suite: keel-security-keyring.gpg
+  * testing, the trixie-testing suite: keel-testing-keyring.gpg
+  * images, the release images and the Proxmox index:
+    keel-images-keyring.gpg
+ .
+ The keys are never merged into one keyring, so a key of one role cannot
+ sign for another role. The fingerprint of the main primary key is in
+ /usr/share/keel-archive-keyring/fingerprint, and the fingerprints of all
+ roles are in /usr/share/keel-archive-keyring/FINGERPRINTS.
+ .
+ The package installs the keys and nothing else. It does not add an apt
+ source, does not change the configuration of apt and has no maintainer
+ script.

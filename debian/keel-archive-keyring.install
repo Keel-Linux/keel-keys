@@ -1,0 +1,2 @@
+debian/gen/usr/share/keyrings/*                usr/share/keyrings
+debian/gen/usr/share/keel-archive-keyring/*    usr/share/keel-archive-keyring

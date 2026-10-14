@@ -1,0 +1,47 @@
+# Build keel-archive-keyring on trixie, hold it to lintian and check its
+# keyring files. The check is "build / trixie".
+#
+# dpkg-buildpackage runs in a Debian trixie system container on the
+# self-hosted runner, through the reusable workflow lxc-trixie.yml of
+# Keel-Linux/.github. The build runs bin/check-keys and compares every
+# fingerprint with FINGERPRINTS and debian/rules, so a key that does not
+# agree stops the job. The files are kept as the artifact "debs". The
+# runner holds no signing key (decision 0055). A pull request from a fork
+# never reaches the runner.
+name: package
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    uses: keel-linux/.github/.github/workflows/lxc-trixie.yml@main
+    with:
+      timeout: 20
+      artifact-dir: dist
+      artifact-name: debs
+      run: |
+        apt-get update -qq
+        apt-get install -y -qq --no-install-recommends \
+          ca-certificates devscripts equivs lintian
+        (cd /tmp && mk-build-deps --install --remove \
+          --tool 'apt-get -y -qq --no-install-recommends' /src/debian/control)
+        dpkg-buildpackage -us -uc
+        lintian --fail-on error,warning --info --display-info ../*.changes
+        mkdir -p dist/x
+        cp ../*.deb ../*.dsc ../*.tar.* ../*.buildinfo ../*.changes dist/
+        dpkg-deb -x dist/keel-archive-keyring_*_all.deb dist/x
+        test "$(cat dist/x/usr/share/keel-archive-keyring/fingerprint)" = \
+          "$(awk '$1 == "main" { print $2 }' FINGERPRINTS)"
+        for ring in archive images security testing; do
+          n="$(gpg --batch --with-colons --show-keys \
+            "dist/x/usr/share/keyrings/keel-$ring-keyring.gpg" | grep -c '^pub:')"
+          test "$n" = 1
+        done
+        rm -rf dist/x
