@@ -1,0 +1,29 @@
+# Forgejo copy of .github/workflows/tests.yml (decision 0056): the same
+# jobs, with a runs-on line on each call of a reusable workflow,
+# because Forgejo runs a called workflow on the runner of the caller.
+# Coverage gate for keel-keys: 95 percent, the bar for code the project
+# writes (decision 0003), measured by tests/coverage.sh (bats under kcov,
+# decision 0004). The check is "tests / coverage". Raise only.
+#
+# The suite makes throwaway OpenPGP keys, and it builds the package with
+# dpkg-buildpackage to check its files. No signing key of the project is
+# on the runner (decision 0055), and no test needs one.
+name: tests
+on:
+  pull_request:
+  push:
+    branches: [main]
+jobs:
+  tests:
+    runs-on: keel-host
+    uses: keel-linux/.github/.github/workflows/test-shell.yml@main
+    with:
+      threshold: 95
+      apt-packages: gnupg dpkg-dev debhelper
+  # A change that ships must come with a changelog entry, or it cannot be
+  # installed and never reaches an appliance. The check is
+  # "package / changelog"; it runs on pull requests only.
+  package:
+    if: github.event_name == 'pull_request'
+    runs-on: keel-host
+    uses: keel-linux/.github/.github/workflows/require-changelog.yml@main
