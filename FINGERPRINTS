@@ -1,0 +1,9 @@
+# The primary key fingerprint of each signing role (handbook decision 0055).
+# One line for each role: the role, then the fingerprint, 40 hex digits.
+# keys/keel-trixie-<role>.asc holds the public key of that role.
+# bin/check-keys and the package build fail when a line and its key file
+# do not agree.
+main AD0964BE3F09DED469A3B6B2148E951314703180
+images E71DB9C3CA6AC18075395CC3ED3A709C4F3E2F3C
+security D97E853FBDBB24492002067BA92969F1BF3B71C6
+testing 9B3CFC527FAD0EA5298D84ED05B5A6FE7E3BA58A

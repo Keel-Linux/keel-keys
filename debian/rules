@@ -1,0 +1,45 @@
+#! /usr/bin/make -f
+
+export GNUPGHOME = $(CURDIR)/debian/gnupg
+GEN = debian/gen
+KEYRINGS = $(GEN)/usr/share/keyrings
+SHARE = $(GEN)/usr/share/keel-archive-keyring
+
+# The primary key fingerprint of each role (handbook decision 0055). Each
+# value is checked 3 ways: against FINGERPRINTS, and through
+# bin/check-keys against the key file itself. A key that nobody checked
+# cannot get into the package.
+FPR_main = AD0964BE3F09DED469A3B6B2148E951314703180
+FPR_images = E71DB9C3CA6AC18075395CC3ED3A709C4F3E2F3C
+FPR_security = D97E853FBDBB24492002067BA92969F1BF3B71C6
+FPR_testing = 9B3CFC527FAD0EA5298D84ED05B5A6FE7E3BA58A
+ROLES = main images security testing
+
+# The keyring file of each role. main keeps the name of the file that
+# installed appliances already name in Signed-By.
+ring_main = keel-archive-keyring
+ring_images = keel-images-keyring
+ring_security = keel-security-keyring
+ring_testing = keel-testing-keyring
+
+%:
+	dh $@
+
+# One keyring file for each role, never 1 merged keyring (decision 0055).
+override_dh_auto_build:
+	rm -rf $(GEN) $(GNUPGHOME)
+	mkdir -p $(KEYRINGS) $(SHARE)
+	mkdir -m 700 -p $(GNUPGHOME)
+	bin/check-keys .
+	grep -v '^#' FINGERPRINTS | sed '/^$$/d' | sort > $(GEN)/listed
+	printf '%s\n' $(foreach r,$(ROLES),"$(r) $(FPR_$(r))") | sort > $(GEN)/expected
+	cmp $(GEN)/listed $(GEN)/expected
+	$(foreach r,$(ROLES),gpg --batch --yes --dearmor \
+	  --output $(KEYRINGS)/$(ring_$(r)).gpg keys/keel-trixie-$(r).asc && ) true
+	cp keys/keel-trixie-main.asc $(KEYRINGS)/keel-archive-keyring.asc
+	echo $(FPR_main) > $(SHARE)/fingerprint
+	printf '%s\n' $(foreach r,$(ROLES),"$(r) $(FPR_$(r))") > $(SHARE)/FINGERPRINTS
+	rm -rf $(GNUPGHOME) $(GEN)/listed $(GEN)/expected
+
+override_dh_auto_clean:
+	rm -rf $(GEN) $(GNUPGHOME)

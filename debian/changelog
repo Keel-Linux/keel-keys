@@ -1,0 +1,18 @@
+keel-keys (0.3.0) trixie; urgency=medium
+
+  * The package is now built from Keel-Linux/keel-keys, not from
+    keel-transition (handbook decision 0055). The binary package keeps
+    its name, keel-archive-keyring, and the version continues above
+    0.2.0.
+  * One keyring file for each signing role: keel-archive-keyring.gpg
+    (main, the same file as before), keel-images-keyring.gpg,
+    keel-security-keyring.gpg and keel-testing-keyring.gpg. The keys are
+    not merged into one keyring.
+  * /usr/share/keel-archive-keyring/fingerprint keeps the main primary
+    key fingerprint only. The new FINGERPRINTS file beside it has 1 line
+    for each role.
+  * The build fails when a key file holds more or less than 1 primary
+    key, holds secret key material, or has a fingerprint that is not the
+    fingerprint in FINGERPRINTS and in debian/rules.
+
+ -- KeelLinux maintainers <admin@keellinux.org>  Wed, 14 Oct 2026 18:00:00 +0000
