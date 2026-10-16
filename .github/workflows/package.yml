@@ -1,27 +1,17 @@
-# Build keel-archive-keyring on trixie, hold it to lintian and check its
-# keyring files. The check is "build / trixie".
-#
-# dpkg-buildpackage runs in a Debian trixie system container on the
-# self-hosted runner, through the reusable workflow lxc-trixie.yml of
-# Keel-Linux/.github. The build runs bin/check-keys and compares every
-# fingerprint with FINGERPRINTS and debian/rules, so a key that does not
-# agree stops the job. The files are kept as the artifact "debs". The
-# runner holds no signing key (decision 0055). A pull request from a fork
-# never reaches the runner.
+# Light CI on GitHub-hosted runners, for pull requests on the GitHub mirror
+# (decision 0056). The full CI is .forgejo/workflows on git.pop.coop, and
+# .forgejo/workflows/package.yml has the notes on each job.
 name: package
 
 on:
   pull_request:
-  push:
-    branches: [main]
-  workflow_dispatch:
 
 permissions:
   contents: read
 
 jobs:
   build:
-    uses: keel-linux/.github/.github/workflows/lxc-trixie.yml@main
+    uses: keel-linux/.github/.github/workflows/github-debian-build.yml@main
     with:
       timeout: 20
       artifact-dir: dist
