@@ -99,3 +99,8 @@ carries the revocation to each appliance.
 `tests/coverage.sh` runs the bats suite under kcov. The tests make
 throwaway keys. No test reads a key of the project from a secret keyring.
 CI builds the package on trixie, runs lintian and checks the keyring files.
+
+## Contributing
+
+Open issues and pull requests on GitHub or on git.pop.coop. A bridge
+copies them to the other server (see CONTRIBUTING of the organization).
